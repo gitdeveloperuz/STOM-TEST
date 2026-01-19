@@ -60,8 +60,6 @@ export const ImageDiffSection: React.FC<ImageDiffSectionProps> = ({ items, confi
   const legacyBgCSS = (config?.sectionBgGradientStart && config?.sectionBgGradientEnd) ? `linear-gradient(${config.bgDirection || 'to bottom'}, ${config.sectionBgGradientStart}, ${config.sectionBgGradientEnd})` : bgColor;
   const finalSectionBg = sectionGradient ? generateCSS(sectionGradient) : legacyBgCSS;
   const textColor = config?.textColor || '#0f172a';
-  const textGradientStart = config?.textColorGradientStart;
-  const textGradientEnd = config?.textColorGradientEnd;
   const borderWidth = config?.borderWidth ?? 1;
   const borderRadius = config?.borderRadius ?? 16;
   const beforeLabel = config?.beforeLabel !== undefined ? config.beforeLabel : 'OLDIN';
@@ -133,8 +131,6 @@ export const ImageDiffSection: React.FC<ImageDiffSectionProps> = ({ items, confi
       if (fileInputRef.current) fileInputRef.current.value = '';
   };
   
-  const parseDimension = (val: string | undefined, defaultVal: number): number => { if (!val) return defaultVal; const num = parseInt(val.replace(/\D/g, '')); return isNaN(num) ? defaultVal : num; };
-
   if (!isVisible && !isEditing) return null;
   if ((!items || items.length === 0) && !isEditing) return null;
 
@@ -146,11 +142,6 @@ export const ImageDiffSection: React.FC<ImageDiffSectionProps> = ({ items, confi
   const gridClass = layoutMode === 'grid' 
       ? `md:grid-cols-2 lg:grid-cols-${gridColumns}` 
       : '';
-
-  // For inline grid style on desktop if using dynamic columns beyond utility classes
-  const desktopGridStyle = layoutMode === 'grid' && !isMobile 
-      ? { gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` } 
-      : {};
 
   return (
     <section className={`transition-colors relative group/diff ${isEditing ? 'border-y-2 border-dashed border-slate-300 dark:border-slate-700' : ''}`} style={{ paddingTop: `${paddingY * 0.25}rem`, paddingBottom: `${paddingY * 0.25}rem`, background: finalSectionBg }}>
@@ -230,4 +221,65 @@ export const ImageDiffSection: React.FC<ImageDiffSectionProps> = ({ items, confi
                       <select value={labelAlignment} onChange={(e) => onUpdateConfig && onUpdateConfig({ labelAlignment: e.target.value as any })} className="w-full text-xs p-1.5 rounded border border-slate-200 dark:border-slate-700 bg-transparent">
                           <option value="top-left">Yuqori Chap</option>
                           <option value="top-right">Yuqori O'ng</option>
-                          <option value
+                          <option value="bottom-left">Pastki Chap</option>
+                          <option value="bottom-right">Pastki O'ng</option>
+                      </select>
+                  </div>
+              </div>
+          </div>,
+          document.body
+      )}
+
+      {isEditing && (
+          <div className="absolute top-4 left-4 z-30">
+              <button 
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl shadow-lg border transition-colors ${showSettings ? 'bg-primary text-white border-primary' : 'bg-white dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-800'}`}
+              >
+                  <Settings className="h-5 w-5" />
+                  <span className="font-bold text-sm">Dizayn Sozlamalari</span>
+              </button>
+          </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div style={containerStyle} className={layoutMode === 'grid' ? gridClass : ''}>
+            {items.map((item) => (
+                <div key={item.id} style={layoutMode === 'flex' ? { width: '100%', maxWidth: '600px', flex: '1 1 400px' } : undefined} className="group/card relative">
+                    {isEditing && (
+                        <div className="absolute top-2 right-2 z-50 flex gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                            <button onClick={() => handleUploadClick(item.id, 'before')} className="bg-white/90 text-slate-600 px-2 py-1 rounded text-[10px] font-bold shadow hover:text-primary">Oldin</button>
+                            <button onClick={() => handleUploadClick(item.id, 'after')} className="bg-white/90 text-slate-600 px-2 py-1 rounded text-[10px] font-bold shadow hover:text-primary">Keyin</button>
+                            <button onClick={() => onDuplicateItem && onDuplicateItem(item.id)} className="p-1.5 bg-white text-slate-500 rounded shadow hover:text-primary"><Copy className="h-3 w-3" /></button>
+                            <button onClick={() => onDeleteItem && onDeleteItem(item.id)} className="p-1.5 bg-red-100 text-red-500 rounded shadow hover:bg-red-500 hover:text-white"><Trash2 className="h-3 w-3" /></button>
+                        </div>
+                    )}
+                    
+                    <ImageDiffSlider 
+                        item={item} 
+                        style={style} 
+                        config={config} 
+                    />
+
+                    {isEditing && (
+                        <div className="mt-2 grid grid-cols-1 gap-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <input value={item.label || ''} onChange={(e) => onUpdateItem && onUpdateItem(item.id, { label: e.target.value })} className="bg-transparent border-b border-dashed border-slate-300 text-xs font-bold w-full" placeholder="Sarlavha" />
+                            <input value={item.description || ''} onChange={(e) => onUpdateItem && onUpdateItem(item.id, { description: e.target.value })} className="bg-transparent border-b border-dashed border-slate-300 text-xs w-full" placeholder="Tavsif" />
+                        </div>
+                    )}
+                </div>
+            ))}
+            
+            {isEditing && (
+                <div onClick={onAddItem} className="flex flex-col items-center justify-center border-4 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl min-h-[300px] cursor-pointer hover:border-primary hover:text-primary text-slate-400 transition-colors bg-slate-50/50 dark:bg-slate-900/50" style={layoutMode === 'flex' ? { width: '100%', maxWidth: '600px', flex: '1 1 400px' } : undefined}>
+                    <Plus className="h-10 w-10 mb-2" />
+                    <span className="font-bold">Yangi Natija</span>
+                </div>
+            )}
+        </div>
+      </div>
+      
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+    </section>
+  );
+};
