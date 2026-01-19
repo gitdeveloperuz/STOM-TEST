@@ -1,0 +1,2 @@
+
+export const AIResultModal = () => null;
