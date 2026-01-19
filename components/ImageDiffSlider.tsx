@@ -200,7 +200,7 @@ export const ImageDiffSlider: React.FC<ImageDiffSliderProps> = ({ item, style, c
               {item.buttons && item.buttons.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                       {item.buttons.map(btn => {
-                          const Icon = BUTTON_ICONS[btn.icon] || ExternalLink;
+                          const Icon = BUTTON_ICONS[btn.icon || 'default'] || ExternalLink;
                           return (
                               <a key={btn.id} href={btn.url} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-transform active:scale-95 hover:brightness-110 shadow-sm" style={{ backgroundColor: btn.bgColor, color: btn.textColor }}>
                                   <Icon className="h-3 w-3" style={{ color: btn.iconColor }} /> {btn.text}

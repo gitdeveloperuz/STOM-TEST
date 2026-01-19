@@ -333,8 +333,8 @@ const App: React.FC = () => {
                         navLinks: (data.navLinks && data.navLinks.length > 0) ? data.navLinks : DEFAULT_CONFIG.navLinks,
                         itemsPerPage: data.itemsPerPage || DEFAULT_CONFIG.itemsPerPage,
                         telegram: {
-                            botToken: data.telegram?.botToken || prev.telegram?.botToken || TELEGRAM_BOT_TOKEN,
-                            adminId: data.telegram?.adminId || prev.telegram?.adminId || TELEGRAM_ADMIN_ID
+                            botToken: (data.telegram?.botToken || prev.telegram?.botToken || TELEGRAM_BOT_TOKEN) as string,
+                            adminId: (data.telegram?.adminId || prev.telegram?.adminId || TELEGRAM_ADMIN_ID) as string
                         },
                         style: { ...DEFAULT_CONFIG.style, ...data.style },
                         conditionConfig: { ...DEFAULT_CONFIG.conditionConfig, ...data.conditionConfig },

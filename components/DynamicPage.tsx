@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Page, PageSection, SiteConfig, StyleConfig, SectionType } from '../types';
+import { Page, PageSection, SiteConfig, StyleConfig, SectionType, FeatureCard, Advertisement, ImageDiffItem, FaqItem, TestimonialItem } from '../types';
 import { HeroSection } from './HeroSection';
 import { AdBanner } from './AdBanner';
 import { FeatureSection } from './FeatureSection';
@@ -130,19 +130,22 @@ export const DynamicPage: React.FC<DynamicPageProps> = ({ page, style, isEditing
                         config={section.data.featureSectionConfig}
                         onConfigUpdate={(conf) => handleUpdateSection(section.id, { featureSectionConfig: { ...section.data.featureSectionConfig, ...conf } })}
                         onCardUpdate={(id, field, val) => {
-                            const newCards = section.data.featureCards?.map(c => c.id === id ? { ...c, [field]: val } : c);
+                            const currentCards = section.data.featureCards as FeatureCard[] || [];
+                            const newCards = currentCards.map(c => c.id === id ? { ...c, [field]: val } : c);
                             handleUpdateSection(section.id, { featureCards: newCards });
                         }}
                         onCardAdd={() => {
-                            const newCard = { id: `fc-${Date.now()}`, title: 'Yangi', description: '...' };
+                            const newCard: FeatureCard = { id: `fc-${Date.now()}`, title: 'Yangi', description: '...' };
                             handleUpdateSection(section.id, { featureCards: [...(section.data.featureCards || []), newCard] });
                         }}
                         onCardDelete={(id) => {
-                            const newCards = section.data.featureCards?.filter(c => c.id !== id);
+                            const currentCards = section.data.featureCards as FeatureCard[] || [];
+                            const newCards = currentCards.filter(c => c.id !== id);
                             handleUpdateSection(section.id, { featureCards: newCards });
                         }}
                         onCardDuplicate={(id) => {
-                            const card = section.data.featureCards?.find(c => c.id === id);
+                            const currentCards = section.data.featureCards as FeatureCard[] || [];
+                            const card = currentCards.find(c => c.id === id);
                             if (card) {
                                 // Deep copy
                                 const newCard = JSON.parse(JSON.stringify(card));
@@ -162,14 +165,14 @@ export const DynamicPage: React.FC<DynamicPageProps> = ({ page, style, isEditing
                                     }));
                                 }
 
-                                const newCards = [...(section.data.featureCards || [])];
+                                const newCards = [...currentCards];
                                 const index = newCards.findIndex(c => c.id === id);
                                 newCards.splice(index + 1, 0, newCard);
                                 handleUpdateSection(section.id, { featureCards: newCards });
                             }
                         }}
                         onCardReorder={(dragIndex, dropIndex) => {
-                            const newCards = [...(section.data.featureCards || [])];
+                            const newCards = [...(section.data.featureCards as FeatureCard[] || [])];
                             const [item] = newCards.splice(dragIndex, 1);
                             newCards.splice(dropIndex, 0, item);
                             handleUpdateSection(section.id, { featureCards: newCards });
@@ -183,8 +186,14 @@ export const DynamicPage: React.FC<DynamicPageProps> = ({ page, style, isEditing
                         ads={section.data.ads || []}
                         config={section.data.adConfig}
                         onAdAdd={(ad) => handleUpdateSection(section.id, { ads: [...(section.data.ads || []), ad] })}
-                        onAdUpdate={(ad) => handleUpdateSection(section.id, { ads: section.data.ads?.map(a => a.id === ad.id ? { ...a, ...ad } : a) })}
-                        onAdDelete={(id) => handleUpdateSection(section.id, { ads: section.data.ads?.filter(a => a.id !== id) })}
+                        onAdUpdate={(ad) => {
+                            const currentAds = section.data.ads as Advertisement[] || [];
+                            handleUpdateSection(section.id, { ads: currentAds.map(a => a.id === ad.id ? { ...a, ...ad } : a) });
+                        }}
+                        onAdDelete={(id) => {
+                            const currentAds = section.data.ads as Advertisement[] || [];
+                            handleUpdateSection(section.id, { ads: currentAds.filter(a => a.id !== id) });
+                        }}
                         onConfigUpdate={(conf) => handleUpdateSection(section.id, { adConfig: { ...section.data.adConfig, ...conf } })}
                     />
                 );
@@ -196,13 +205,20 @@ export const DynamicPage: React.FC<DynamicPageProps> = ({ page, style, isEditing
                         config={section.data.diffConfig}
                         onUpdateConfig={(conf) => handleUpdateSection(section.id, { diffConfig: { ...section.data.diffConfig, ...conf } })}
                         onAddItem={() => {
-                            const newItem = { id: `diff-${Date.now()}`, beforeImage: '', afterImage: '', label: 'Yangi Natija' };
+                            const newItem: ImageDiffItem = { id: `diff-${Date.now()}`, beforeImage: '', afterImage: '', label: 'Yangi Natija' };
                             handleUpdateSection(section.id, { diffItems: [...(section.data.diffItems || []), newItem] });
                         }}
-                        onDeleteItem={(id) => handleUpdateSection(section.id, { diffItems: section.data.diffItems?.filter(i => i.id !== id) })}
-                        onUpdateItem={(id, updates) => handleUpdateSection(section.id, { diffItems: section.data.diffItems?.map(i => i.id === id ? { ...i, ...updates } : i) })}
+                        onDeleteItem={(id) => {
+                            const currentItems = section.data.diffItems as ImageDiffItem[] || [];
+                            handleUpdateSection(section.id, { diffItems: currentItems.filter(i => i.id !== id) });
+                        }}
+                        onUpdateItem={(id, updates) => {
+                            const currentItems = section.data.diffItems as ImageDiffItem[] || [];
+                            handleUpdateSection(section.id, { diffItems: currentItems.map(i => i.id === id ? { ...i, ...updates } : i) });
+                        }}
                         onDuplicateItem={(id) => {
-                            const item = section.data.diffItems?.find(i => i.id === id);
+                            const currentItems = section.data.diffItems as ImageDiffItem[] || [];
+                            const item = currentItems.find(i => i.id === id);
                             if (item) {
                                 // Deep copy
                                 const newItem = JSON.parse(JSON.stringify(item));
@@ -210,7 +226,7 @@ export const DynamicPage: React.FC<DynamicPageProps> = ({ page, style, isEditing
                                 // Regenerate IDs for buttons if present
                                 if(newItem.buttons) newItem.buttons = newItem.buttons.map((b: any) => ({...b, id: `btn-${Date.now()}-${Math.random()}`}));
                                 
-                                const items = [...(section.data.diffItems || [])];
+                                const items = [...currentItems];
                                 const index = items.findIndex(i => i.id === id);
                                 items.splice(index + 1, 0, newItem);
                                 handleUpdateSection(section.id, { diffItems: items });
@@ -230,8 +246,14 @@ export const DynamicPage: React.FC<DynamicPageProps> = ({ page, style, isEditing
                         onUpdateSubtitle={(val) => handleUpdateSection(section.id, { faqSubtitle: val })}
                         onUpdateConfig={(conf) => handleUpdateSection(section.id, { faqConfig: { ...section.data.faqConfig, ...conf } })}
                         onAddItem={() => handleUpdateSection(section.id, { faqItems: [...(section.data.faqItems || []), { id: `f-${Date.now()}`, question: '?', answer: '...', isVisible: true }] })}
-                        onDeleteItem={(id) => handleUpdateSection(section.id, { faqItems: section.data.faqItems?.filter(i => i.id !== id) })}
-                        onUpdateItem={(id, field, val) => handleUpdateSection(section.id, { faqItems: section.data.faqItems?.map(i => i.id === id ? { ...i, [field]: val } : i) })}
+                        onDeleteItem={(id) => {
+                            const currentItems = section.data.faqItems as FaqItem[] || [];
+                            handleUpdateSection(section.id, { faqItems: currentItems.filter(i => i.id !== id) });
+                        }}
+                        onUpdateItem={(id, field, val) => {
+                            const currentItems = section.data.faqItems as FaqItem[] || [];
+                            handleUpdateSection(section.id, { faqItems: currentItems.map(i => i.id === id ? { ...i, [field]: val } : i) });
+                        }}
                     />
                 );
             case 'testimonials':
@@ -244,14 +266,21 @@ export const DynamicPage: React.FC<DynamicPageProps> = ({ page, style, isEditing
                         config={section.data.testimonialsConfig}
                         onUpdateConfig={(conf) => handleUpdateSection(section.id, { ...conf, testimonialsConfig: { ...section.data.testimonialsConfig, ...conf } })}
                         onAddItem={() => handleUpdateSection(section.id, { testimonials: [...(section.data.testimonials || []), { id: `t-${Date.now()}`, name: 'Name', text: 'Text', rating: 5 }] })}
-                        onDeleteItem={(id) => handleUpdateSection(section.id, { testimonials: section.data.testimonials?.filter(t => t.id !== id) })}
-                        onUpdateItem={(id, field, val) => handleUpdateSection(section.id, { testimonials: section.data.testimonials?.map(t => t.id === id ? { ...t, [field]: val } : t) })}
+                        onDeleteItem={(id) => {
+                            const currentItems = section.data.testimonials as TestimonialItem[] || [];
+                            handleUpdateSection(section.id, { testimonials: currentItems.filter(t => t.id !== id) });
+                        }}
+                        onUpdateItem={(id, field, val) => {
+                            const currentItems = section.data.testimonials as TestimonialItem[] || [];
+                            handleUpdateSection(section.id, { testimonials: currentItems.map(t => t.id === id ? { ...t, [field]: val } : t) });
+                        }}
                         onDuplicateItem={(id) => {
-                            const item = section.data.testimonials?.find(t => t.id === id);
-                            if(item) handleUpdateSection(section.id, { testimonials: [...(section.data.testimonials || []), { ...item, id: `t-${Date.now()}` }] });
+                            const currentItems = section.data.testimonials as TestimonialItem[] || [];
+                            const item = currentItems.find(t => t.id === id);
+                            if(item) handleUpdateSection(section.id, { testimonials: [...currentItems, { ...item, id: `t-${Date.now()}` }] });
                         }}
                         onReorder={(d, o) => {
-                            const items = [...(section.data.testimonials || [])];
+                            const items = [...(section.data.testimonials as TestimonialItem[] || [])];
                             const [moved] = items.splice(d, 1);
                             items.splice(o, 0, moved);
                             handleUpdateSection(section.id, { testimonials: items });
