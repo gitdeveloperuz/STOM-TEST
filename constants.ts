@@ -1,4 +1,3 @@
-
 import { Treatment } from './types';
 
 export const CURRENCY_FORMATTER = new Intl.NumberFormat('uz-UZ', {
@@ -22,5 +21,8 @@ export const formatPrice = (price: number, currency: 'UZS' | 'USD' = 'UZS') => {
 export const STATIC_SERVICES: Treatment[] = [];
 
 // TELEGRAM CONFIGURATION
-export const TELEGRAM_BOT_TOKEN: string = '8540374918:AAG6TrUA8hku0UvCN-i1V7GuL5ycr9EtRC4'; 
-export const TELEGRAM_ADMIN_ID: string = '153931240';
+// Safely access env vars
+const metaEnv = (import.meta as any).env || {};
+
+export const TELEGRAM_BOT_TOKEN: string = metaEnv.VITE_TELEGRAM_BOT_TOKEN || '8540374918:AAG6TrUA8hku0UvCN-i1V7GuL5ycr9EtRC4'; 
+export const TELEGRAM_ADMIN_ID: string = metaEnv.VITE_TELEGRAM_ADMIN_ID || '153931240';

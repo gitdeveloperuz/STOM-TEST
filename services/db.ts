@@ -1,3 +1,4 @@
+
 import { Treatment, Category, SiteConfig, Advertisement, AdminUser, ChatMessage, ChatSession, CartItem, Announcement, TelegramUser, AnnouncementMedia, Order, ProductCondition, RateLimitState, BotConfig, TelegramMenuCommand, TelegramProfileConfig, FirebaseConfig } from '../types';
 import { TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_ID } from '../constants';
 import { getFirestoreInstance, listenToCollection, setDocument, deleteDocument, batchSave } from './firebase';
@@ -245,13 +246,13 @@ export const restoreBackup = async (backup: any) => {
 
 let lastUpdateId = 0;
 
-export const checkTelegramReplies = async (token: string, adminIds: string[]) => {
-    if (!token) return;
+export const checkTelegramReplies = async (token: string, adminIds: string[]): Promise<boolean> => {
+    if (!token) return false;
     try {
         const response = await fetch(`https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId + 1}&timeout=1`);
         if (!response.ok) {
             // Ignore specific HTTP errors to avoid console spam during dev/CORS blocks
-            return;
+            return false;
         }
         const data = await response.json();
         if (data.ok && data.result.length > 0) {
@@ -271,10 +272,11 @@ export const checkTelegramReplies = async (token: string, adminIds: string[]) =>
                 }
             }
         }
+        return true;
     } catch (e: any) {
         // Completely suppress polling errors to avoid console spam
         // Polling failures are expected in client-side only environments (CORS)
-        return;
+        return false;
     }
 };
 

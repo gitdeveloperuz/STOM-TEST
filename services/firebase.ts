@@ -1,4 +1,3 @@
-
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { 
     getFirestore, 
@@ -14,15 +13,18 @@ import {
 } from 'firebase/firestore';
 import { FirebaseConfig } from '../types';
 
+// Use type assertion for import.meta to avoid TS errors about missing env property
+const metaEnv = (import.meta as any).env || {};
+
 // Default configuration with User's credentials
 const DEFAULT_FIREBASE_CONFIG: FirebaseConfig = {
-  apiKey: "AIzaSyD4TgCdJOnDv43XP_iGuuUmMuGP5jaSpIM",
-  authDomain: "couz-1d994.firebaseapp.com",
-  projectId: "couz-1d994",
-  storageBucket: "couz-1d994.firebasestorage.app",
-  messagingSenderId: "1069146264746",
-  appId: "1:1069146264746:web:35778453adc52927362cd3",
-  measurementId: "G-33PGSJH4G8"
+  apiKey: metaEnv.VITE_FIREBASE_API_KEY || "AIzaSyD4TgCdJOnDv43XP_iGuuUmMuGP5jaSpIM",
+  authDomain: metaEnv.VITE_FIREBASE_AUTH_DOMAIN || "couz-1d994.firebaseapp.com",
+  projectId: metaEnv.VITE_FIREBASE_PROJECT_ID || "couz-1d994",
+  storageBucket: metaEnv.VITE_FIREBASE_STORAGE_BUCKET || "couz-1d994.firebasestorage.app",
+  messagingSenderId: metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || "1069146264746",
+  appId: metaEnv.VITE_FIREBASE_APP_ID || "1:1069146264746:web:35778453adc52927362cd3",
+  measurementId: metaEnv.VITE_FIREBASE_MEASUREMENT_ID || "G-33PGSJH4G8"
 };
 
 let firestoreInstance: Firestore | null = null;

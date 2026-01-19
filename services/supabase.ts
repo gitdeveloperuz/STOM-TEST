@@ -1,8 +1,10 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://kyaftizairzstekjqekv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5YWZ0aXphaXJ6c3Rla2pxZWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDg5NjQsImV4cCI6MjA4NDI4NDk2NH0.JG07KLAqh5m1BteOU03tB-7zjrLLbScauL4RbF-wtnM';
+// Safely access env vars
+const metaEnv = (import.meta as any).env || {};
+
+const SUPABASE_URL = metaEnv.VITE_SUPABASE_URL || 'https://kyaftizairzstekjqekv.supabase.co';
+const SUPABASE_ANON_KEY = metaEnv.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5YWZ0aXphaXJ6c3Rla2pxZWt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDg5NjQsImV4cCI6MjA4NDI4NDk2NH0.JG07KLAqh5m1BteOU03tB-7zjrLLbScauL4RbF-wtnM';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

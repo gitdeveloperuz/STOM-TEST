@@ -88,17 +88,19 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ onSecretCode, telegramCo
 
       const poll = async () => {
           if (!isRunning) return;
-          try {
-              await checkTelegramReplies(botToken, adminIds);
-              errorCount = 0; // Reset error count on success
-          } catch (e) {
-              errorCount++;
-          }
+          
+          const success = await checkTelegramReplies(botToken, adminIds);
           
           if (isRunning) {
-              // Increase interval if errors occur (backoff strategy)
-              const interval = errorCount > 3 ? 10000 : 1000;
-              setTimeout(poll, interval);
+              if (success) {
+                  errorCount = 0;
+                  setTimeout(poll, 1000);
+              } else {
+                  errorCount++;
+                  // If it fails (CORS), it will likely fail forever in this env. 
+                  // Slow down significantly to avoid console spam.
+                  setTimeout(poll, 30000);
+              }
           }
       };
       
