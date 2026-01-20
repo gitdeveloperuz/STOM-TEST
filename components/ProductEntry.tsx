@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Check, ListPlus, Image as ImageIcon, Sparkles, DollarSign, Tag, Info, X, Upload, AlertTriangle, FileUp } from 'lucide-react';
+import { Plus, Check, ListPlus, Image as ImageIcon, Sparkles, DollarSign, Tag, Info, X, Upload, AlertTriangle, FileUp, Loader2 } from 'lucide-react';
 import { Treatment, Category } from '../types';
 import { uploadToSupabase, base64ToBlob } from '../services/supabase';
 
@@ -10,7 +10,7 @@ interface ProductEntryProps {
   onSave: (data: Omit<Treatment, 'id'> & { imageUrl: string, images: string[] }) => void;
 }
 
-// Helper to compress image
+// Helper to compress image for preview & upload optimization
 const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -20,7 +20,7 @@ const compressImage = (file: File): Promise<string> => {
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                const MAX_DIM = 1000; 
+                const MAX_DIM = 800; // Optimized for faster uploads
                 
                 if (width > height) {
                     if (width > MAX_DIM) {
@@ -39,8 +39,9 @@ const compressImage = (file: File): Promise<string> => {
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
                     ctx.drawImage(img, 0, 0, width, height);
+                    // 0.7 quality is good balance for web
                     const outputType = 'image/jpeg';
-                    resolve(canvas.toDataURL(outputType, 0.8)); 
+                    resolve(canvas.toDataURL(outputType, 0.7)); 
                 } else {
                     resolve(event.target?.result as string); 
                 }
@@ -63,14 +64,16 @@ export const ProductEntry: React.FC<ProductEntryProps> = ({ image, categories, o
   const [uploadError, setUploadError] = useState<string | null>(null);
   
   // Image Management
-  const [images, setImages] = useState<string[]>([image]);
+  const [images, setImages] = useState<string[]>(image ? [image] : []);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-      setImages([image]);
-      setPreviewIndex(0);
+      if (image) {
+          setImages([image]);
+          setPreviewIndex(0);
+      }
   }, [image]);
 
   const processFiles = async (files: FileList | null) => {
@@ -114,53 +117,76 @@ export const ProductEntry: React.FC<ProductEntryProps> = ({ image, categories, o
   };
 
   const handleRemoveImage = (index: number) => {
-      if (images.length <= 1) {
-          alert("Kamida bitta rasm bo'lishi kerak.");
-          return;
-      }
       const newImages = images.filter((_, i) => i !== index);
       setImages(newImages);
-      setPreviewIndex(0);
+      if (previewIndex >= newImages.length) {
+          setPreviewIndex(Math.max(0, newImages.length - 1));
+      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !price) return;
+    if (!name || !price) {
+        setUploadError("Mahsulot nomi va narxi kiritilishi shart.");
+        return;
+    }
+    
+    if (images.length === 0) {
+        setUploadError("Kamida bitta rasm yuklang.");
+        return;
+    }
 
     setIsProcessing(true);
     setUploadError(null);
 
     try {
         const finalUrls: string[] = [];
+        // Use product name as folder name, replacing spaces with underscores
+        const folderName = name.trim().replace(/\s+/g, '_') || 'products';
         
+        // Process images sequentially to ensure order and reliability
         for (const img of images) {
-            if (img.startsWith('data:')) {
-                // Try upload to Supabase
-                const blob = base64ToBlob(img);
-                const url = await uploadToSupabase(blob);
+            if (img.startsWith('http')) {
+                // Already a URL
+                finalUrls.push(img);
+            } else {
+                // It's a Base64 string (with or without prefix)
+                // App passes raw base64 without 'data:' prefix for initial image
                 
+                const blob = base64ToBlob(img);
+                
+                // Try upload to Supabase with specific folder
+                let url = await uploadToSupabase(blob, folderName);
+                
+                if (!url) {
+                    // Retry once if failed
+                    console.warn("Retrying upload for image...");
+                    url = await uploadToSupabase(blob, folderName);
+                }
+
                 if (url) {
                     finalUrls.push(url);
                 } else {
-                    // Fallback to base64 ONLY if upload fails
-                    // This is a safety measure, but we warn the user
+                    // Fallback to base64 if Supabase fails (e.g. RLS policy error)
                     console.warn("Supabase upload failed, using Base64 fallback.");
-                    if (img.length > 900000) {
-                        // Warn but still try, database might reject if too huge
-                        console.warn("Image is large for database storage.");
+                    
+                    // Check size to avoid Firestore document limits (1MB limit for doc)
+                    // 500KB limit for image to allow metadata
+                    if (img.length < 500000) { 
+                        finalUrls.push(img);
+                    } else {
+                        // If one image is too big and can't be uploaded, we stop.
+                        throw new Error("Rasm serverga yuklanmadi va Base64 uchun hajmi juda katta.");
                     }
-                    finalUrls.push(img);
                 }
-            } else if (img.startsWith('http')) {
-                finalUrls.push(img);
             }
         }
 
         if (finalUrls.length === 0) {
-             setUploadError("Rasm yuklashda xatolik.");
-             setIsProcessing(false);
-             return;
+             throw new Error("Rasm yuklashda xatolik yuz berdi. Hech qanday rasm saqlanmadi.");
         }
+
+        const primaryImage = finalUrls[0];
 
         onSave({
           name,
@@ -170,33 +196,35 @@ export const ProductEntry: React.FC<ProductEntryProps> = ({ image, categories, o
           condition: 'new',
           description: description.trim(), 
           recommended: false,
-          imageUrl: finalUrls[0], 
-          images: finalUrls
+          imageUrl: primaryImage, // Important for listing
+          images: finalUrls       // Important for gallery
         });
         
         setAdded(true);
+        // Reset Form
         setName('');
         setPrice('');
         setCurrency('UZS');
         setCategoryId('');
         setDescription('');
-        setImages([image]); // Reset to initial
+        setImages([]); 
         
         setTimeout(() => {
             setAdded(false);
         }, 2000);
     } catch (err: any) {
         console.error("Save error details:", err);
-        setUploadError("Saqlashda xatolik yuz berdi. Internetni tekshiring.");
+        setUploadError(err.message || "Saqlashda xatolik yuz berdi. Internetni tekshiring.");
     } finally {
         setIsProcessing(false);
     }
   };
 
-  const currentMedia = images[previewIndex] || images[0];
+  const currentMedia = images[previewIndex] || images[0] || '';
   const getRenderSrc = (imgStr: string) => {
       if (!imgStr) return '';
       if (imgStr.startsWith('data:') || imgStr.startsWith('http')) return imgStr;
+      // Fallback for raw base64 without prefix
       const mime = imgStr.startsWith('iVBOR') ? 'image/png' : 'image/jpeg';
       return `data:${mime};base64,${imgStr}`;
   };
@@ -223,11 +251,18 @@ export const ProductEntry: React.FC<ProductEntryProps> = ({ image, categories, o
             )}
 
             <div className="relative flex-1 overflow-hidden flex items-center justify-center bg-black/5 dark:bg-black/20">
-                <img 
-                    src={renderSrc} 
-                    alt="Preview" 
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                />
+                {renderSrc ? (
+                    <img 
+                        src={renderSrc} 
+                        alt="Preview" 
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                    />
+                ) : (
+                    <div className="flex flex-col items-center text-slate-400">
+                        <ImageIcon className="h-12 w-12 mb-2" />
+                        <span className="text-xs font-bold uppercase">Rasm Yo'q</span>
+                    </div>
+                )}
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent flex flex-col justify-end p-8 pointer-events-none">
                     <div className="bg-white/20 backdrop-blur-md border border-white/20 rounded-2xl p-4 text-white">
@@ -244,7 +279,7 @@ export const ProductEntry: React.FC<ProductEntryProps> = ({ image, categories, o
             <div className="bg-white dark:bg-slate-900 p-4 border-t border-slate-200 dark:border-slate-700 z-10 relative">
                 <div className="flex justify-between items-center mb-2">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Rasmlar ({images.length})</p>
-                    {isProcessing && <span className="text-xs text-primary animate-pulse">Yuklanmoqda...</span>}
+                    {isProcessing && <span className="text-xs text-primary animate-pulse flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin"/> Yuklanmoqda...</span>}
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                     {images.map((img, idx) => {
@@ -379,7 +414,7 @@ export const ProductEntry: React.FC<ProductEntryProps> = ({ image, categories, o
                 </div>
 
                 {uploadError && (
-                    <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm flex items-center gap-2 animate-fade-in">
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl text-sm flex items-center gap-2 animate-fade-in border border-red-200 dark:border-red-900/50">
                         <AlertTriangle className="h-4 w-4 shrink-0" /> 
                         <span>{uploadError}</span>
                     </div>
@@ -395,7 +430,7 @@ export const ProductEntry: React.FC<ProductEntryProps> = ({ image, categories, o
                             : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/20 hover:bg-slate-800 dark:hover:bg-slate-100 ring-2 ring-transparent ring-offset-2 hover:ring-slate-900 dark:hover:ring-slate-100'
                         } ${isProcessing ? 'opacity-70 cursor-not-allowed' : ''}`}
                     >
-                        {isProcessing ? 'Yuklanmoqda...' : added ? (
+                        {isProcessing ? <><Loader2 className="h-5 w-5 animate-spin" /> Yuklanmoqda...</> : added ? (
                             <>
                                 <Check className="w-6 h-6" /> Saqlandi
                             </>

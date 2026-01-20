@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, User, Send, MessageSquare, Trash2, CheckCircle, Edit2, X, Paperclip, Image as ImageIcon, Video, Mic, Ban, ShieldCheck, ChevronUp } from 'lucide-react';
+import { Search, User, Send, MessageSquare, Trash2, CheckCircle, Edit2, X, Paperclip, Image as ImageIcon, Video, Mic, Ban, ShieldCheck, ChevronUp, Bot } from 'lucide-react';
 import { ChatSession, ChatMessage } from '../types';
-import { subscribeToAllSessions, subscribeToChatMessages, sendMessage, markSessionRead, deleteMessage, deleteChatSession, replyToTelegramUser, editMessage, updateMessageTelegramId, editTelegramMessage, toggleSessionBlock } from '../services/db';
+import { subscribeToAllSessions, subscribeToChatMessages, sendMessage, markSessionRead, deleteMessage, deleteChatSession, replyToTelegramUser, editMessage, updateMessageTelegramId, editTelegramMessage, toggleSessionBlock, processBotUpdates } from '../services/db';
+import { TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_ID } from '../constants';
 import { ConfirmModal } from './ConfirmModal';
 
 export const AdminChat: React.FC = () => {
@@ -11,6 +12,9 @@ export const AdminChat: React.FC = () => {
   const [allMessages, setAllMessages] = useState<ChatMessage[]>([]);
   const [displayCount, setDisplayCount] = useState(20);
   const [replyText, setReplyText] = useState('');
+  
+  // Bot Polling State
+  const [isBotPolling, setIsBotPolling] = useState(false);
   
   // States for Editing
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -28,6 +32,33 @@ export const AdminChat: React.FC = () => {
   // Modal State
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'message' | 'session' | 'block', id?: string } | null>(null);
 
+  // --- BOT BRIDGE LOGIC ---
+  useEffect(() => {
+      let isMounted = true;
+      let polling = true;
+
+      const runBotBridge = async () => {
+          setIsBotPolling(true);
+          console.log("🤖 Admin Bot Bridge Started (Full Logic)");
+          
+          while (polling && isMounted) {
+              if (TELEGRAM_BOT_TOKEN && !TELEGRAM_BOT_TOKEN.includes('YOUR_')) {
+                  const adminIds = TELEGRAM_ADMIN_ID.split(',').map(id => id.trim());
+                  await processBotUpdates(TELEGRAM_BOT_TOKEN, adminIds);
+              }
+              await new Promise(r => setTimeout(r, 2000));
+          }
+      };
+
+      runBotBridge();
+
+      return () => {
+          isMounted = false;
+          polling = false;
+          setIsBotPolling(false);
+      };
+  }, []);
+
   // Load Session List
   useEffect(() => {
     const unsubscribe = subscribeToAllSessions((data) => {
@@ -39,10 +70,7 @@ export const AdminChat: React.FC = () => {
   // Load Messages when session selected
   useEffect(() => {
     if (!selectedSessionId) return;
-    
-    // Reset pagination when switching sessions
     setDisplayCount(20);
-    // Mark as read immediately
     markSessionRead(selectedSessionId);
 
     const unsubscribe = subscribeToChatMessages(selectedSessionId, (msgs) => {
@@ -52,9 +80,8 @@ export const AdminChat: React.FC = () => {
     return () => unsubscribe();
   }, [selectedSessionId]);
 
-  // Scroll to bottom on initial load or new messages (if not viewing history)
+  // Scroll to bottom
   useEffect(() => {
-      // Simple heuristic: if we are near the bottom or just loaded, scroll to bottom
       if (messagesEndRef.current) {
           messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
       }
@@ -67,7 +94,6 @@ export const AdminChat: React.FC = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-          // Check for restricted types (GIF and Stickers/WebP)
           if (file.type.includes('gif') || file.type === 'image/webp') {
               alert("Stiker va GIF formatidagi fayllar taqiqlangan!");
               if (fileInputRef.current) fileInputRef.current.value = '';
@@ -100,15 +126,13 @@ export const AdminChat: React.FC = () => {
 
     if (editingMessageId) {
         // --- EDIT MODE ---
-        // 1. Update Local DB
-        await editMessage(editingMessageId, replyText.trim());
+        // Update Local DB
+        await editMessage(selectedSessionId, editingMessageId, replyText.trim());
 
-        // 2. If Telegram message, update on Telegram
+        // If Telegram message, update on Telegram
         const originalMsg = allMessages.find(m => m.id === editingMessageId);
         if (originalMsg && selectedSessionId.startsWith('tg-') && originalMsg.telegramMessageId) {
              const tgChatId = selectedSessionId.replace('tg-', '');
-             // Determine if it is a media message or text message
-             // Important: Check if original message HAD mediaUrl or mediaType
              const isMedia = !!originalMsg.mediaUrl || !!originalMsg.mediaType;
              await editTelegramMessage(tgChatId, originalMsg.telegramMessageId, replyText.trim(), isMedia);
         }
@@ -126,13 +150,12 @@ export const AdminChat: React.FC = () => {
             else if (selectedFile.type.startsWith('audio/')) mediaType = 'audio';
             else mediaType = 'document';
             
-            // Extract base64 from preview only if it's an image
             if (mediaType === 'photo') {
                 base64Media = filePreview ? filePreview : undefined;
             }
         }
 
-        // 1. Save message to DB (Optimistic update)
+        // Save message to DB
         const savedMsg = await sendMessage(
             selectedSessionId, 
             replyText.trim(), 
@@ -142,14 +165,13 @@ export const AdminChat: React.FC = () => {
             mediaType
         );
 
-        // 2. If it is a Telegram User Session, send to Telegram Bot
+        // If Telegram User Session, send to Telegram Bot
         if (selectedSessionId.startsWith('tg-') || /^\d+$/.test(selectedSessionId)) {
-            const tgChatId = selectedSessionId.replace('tg-', ''); // Handles both tg- prefix and raw numeric ID if normalized
+            const tgChatId = selectedSessionId.replace('tg-', ''); 
             const res = await replyToTelegramUser(tgChatId, replyText.trim(), selectedFile || undefined);
             
-            // 3. Save the Telegram Message ID for future editing/deleting
             if (res && res.ok) {
-                await updateMessageTelegramId(savedMsg.id, res.result.message_id);
+                await updateMessageTelegramId(selectedSessionId, savedMsg.id, res.result.message_id);
                 setSuccessMessage("Xabar foydalanuvchiga yuborildi!");
             } else {
                 console.error("Failed to send reply to Telegram user:", JSON.stringify(res));
@@ -236,6 +258,10 @@ export const AdminChat: React.FC = () => {
                   <MessageSquare className="h-5 w-5 text-primary" />
                   Mijozlar Xabarlari
               </h2>
+              <div className={`text-xs px-2 py-1 rounded flex items-center gap-2 mb-2 ${isBotPolling ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                  <div className={`w-2 h-2 rounded-full ${isBotPolling ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+                  Bot Status: {isBotPolling ? "Online (Logic Active)" : "Offline"}
+              </div>
               <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <input 
@@ -296,7 +322,7 @@ export const AdminChat: React.FC = () => {
                               Back
                           </button>
                           <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                              <User className="h-5 w-5 text-primary" />
+                              {currentSession?.id.startsWith('tg-') ? <Bot className="h-5 w-5 text-indigo-500" /> : <User className="h-5 w-5 text-primary" />}
                           </div>
                           <div>
                               <div className="flex items-center gap-2">

@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bot": "node server.js",
+    "migrate": "node migration.js"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -17,7 +19,11 @@
     "firebase": "^10.12.0",
     "otpauth": "^9.2.2",
     "qrcode": "^1.5.3",
-    "@supabase/supabase-js": "^2.45.0"
+    "@supabase/supabase-js": "^2.45.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "firebase-admin": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "mongodb": "^6.3.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.1",

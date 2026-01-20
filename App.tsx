@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Navbar } from './components/Navbar';
@@ -22,10 +21,12 @@ import { TestimonialsSection } from './components/TestimonialsSection';
 import { Pagination } from './components/Pagination';
 import { DynamicPage } from './components/DynamicPage';
 import { TableSection } from './components/TableSection';
+import { CookieConsent } from './components/CookieConsent';
 import { Treatment, CartItem, Category, SiteConfig, Advertisement, AdminUser, Page, NavLink, SectionType, TelegramUser, BotConfig } from './types';
 import { Stethoscope, CloudOff, Cloud, LayoutGrid, MessageSquare, Plus, Trash2, Settings, Users, X, Filter, Search, ArrowUp, ArrowDown, Heart, Upload } from 'lucide-react';
-import { initDB, saveTreatment, deleteTreatment, subscribeToTreatments, isCloudConfigured, subscribeToCategories, saveCategory, deleteCategory, subscribeToSiteConfig, saveSiteConfig, trackTgUser, subscribeToTelegramUsers, initializeFirebaseListeners } from './services/db';
+import { initDB, saveTreatment, deleteTreatment, subscribeToTreatments, isCloudConfigured, subscribeToCategories, saveCategory, deleteCategory, subscribeToSiteConfig, saveSiteConfig, trackTgUser, subscribeToTelegramUsers, initializeFirebaseListeners, subscribeToAdmins, setDynamicTelegramConfig, logAnalyticsEvent } from './services/db';
 import { TELEGRAM_ADMIN_ID, TELEGRAM_BOT_TOKEN } from './constants';
+import { updateSupabaseConfig, deleteFromSupabase } from './services/supabase';
 
 const DEFAULT_BOT_CONFIG: BotConfig = {
     welcomeMessage: "👋 <b>Assalomu alaykum!</b>\n\nStomatologiya.uz botiga xush kelibsiz. Professional stomatologiya mahsulotlari va uskunalari.",
@@ -197,7 +198,7 @@ const App: React.FC = () => {
   const effectiveDarkModeColor = tempDarkModeColor || siteConfig.darkModeColor;
   const isAdmin = !!currentUser;
 
-  // Initialize Client ID
+  // Initialize Client ID & Track initial visits
   useEffect(() => {
       let storedId = localStorage.getItem('stomatologiya_chat_id');
       if (!storedId) {
@@ -205,11 +206,25 @@ const App: React.FC = () => {
           localStorage.setItem('stomatologiya_chat_id', storedId);
       }
       setSessionId(storedId);
+
+      // TRACK: Traffic Source & Page Visit
+      logAnalyticsEvent('traffic_source', { 
+          referrer: document.referrer || 'direct',
+          url: window.location.href 
+      });
+      logAnalyticsEvent('page_view', { page: 'home' });
+
   }, []);
+
+  // Track Page Navigation
+  useEffect(() => {
+      logAnalyticsEvent('page_view', { page: currentRoute });
+  }, [currentRoute]);
 
   // Set Session ID wrapper to handle the setSessionId call
   const setSessionId = (id: string) => setClientSessionId(id);
 
+  // ... (rest of the file remains same, imports updated) ...
   // Load User Data (Likes)
   useEffect(() => {
       if (!clientSessionId) return;
@@ -313,16 +328,12 @@ const App: React.FC = () => {
                 }
 
                 if (data) {
-                    // Force update token from constants.ts if it differs
-                    // This fixes the issue where old DB config overrides new code config
-                    if (data.telegram?.botToken !== TELEGRAM_BOT_TOKEN) {
-                        console.log("🔄 Syncing new Telegram Bot Token to DB...");
-                        data.telegram = { 
-                            ...data.telegram, 
-                            botToken: TELEGRAM_BOT_TOKEN,
-                            adminId: TELEGRAM_ADMIN_ID // Ensure Admin ID is also synced
-                        };
-                        await saveSiteConfig(data);
+                    // Sync Core Services with Config from DB
+                    if (data.supabaseConfig && data.supabaseConfig.url && data.supabaseConfig.anonKey) {
+                        updateSupabaseConfig(data.supabaseConfig.url, data.supabaseConfig.anonKey, data.supabaseConfig.bucketName);
+                    }
+                    if (data.telegram?.botToken) {
+                        setDynamicTelegramConfig(data.telegram.botToken, data.telegram.adminId);
                     }
 
                     setSiteConfig(prev => ({
@@ -333,6 +344,7 @@ const App: React.FC = () => {
                         navLinks: (data.navLinks && data.navLinks.length > 0) ? data.navLinks : DEFAULT_CONFIG.navLinks,
                         itemsPerPage: data.itemsPerPage || DEFAULT_CONFIG.itemsPerPage,
                         telegram: {
+                            // Prefer DB config, fallback to Env Vars if missing
                             botToken: (data.telegram?.botToken || prev.telegram?.botToken || TELEGRAM_BOT_TOKEN) as string,
                             adminId: (data.telegram?.adminId || prev.telegram?.adminId || TELEGRAM_ADMIN_ID) as string
                         },
@@ -349,10 +361,17 @@ const App: React.FC = () => {
                             inlineButtons: { ...DEFAULT_BOT_CONFIG.inlineButtons, ...(data.botConfig?.inlineButtons || {}) }
                         },
                         twoFactorIssuer: data.twoFactorIssuer || prev.twoFactorIssuer,
-                        firebaseConfig: data.firebaseConfig || prev.firebaseConfig
+                        firebaseConfig: data.firebaseConfig || prev.firebaseConfig,
+                        supabaseConfig: data.supabaseConfig || prev.supabaseConfig
                     }));
                 }
                 setIsConfigLoaded(true);
+            });
+
+            // Ensure Admin credentials are loaded so login works even after password change
+            const unsubAdmins = subscribeToAdmins(() => {
+                // Syncs admin credentials from Firestore to local cache
+                console.log("Admins synced from Firebase");
             });
 
             const sessionStr = localStorage.getItem(SESSION_KEY);
@@ -371,6 +390,7 @@ const App: React.FC = () => {
                 unsubTreatments();
                 unsubCategories();
                 unsubConfig();
+                unsubAdmins();
             };
         } catch (e) {
             console.error("Init failed", e);
@@ -480,7 +500,17 @@ const App: React.FC = () => {
       setUploadedImage(null);
   };
 
-  const handleDeleteProduct = async (id: string) => await deleteTreatment(id);
+  const handleDeleteProduct = async (id: string) => {
+      const treatment = services.find(t => t.id === id);
+      // Delete images from Supabase first
+      if (treatment && (treatment.images || treatment.imageUrl)) {
+          const imagesToDelete = treatment.images || (treatment.imageUrl ? [treatment.imageUrl] : []);
+          await deleteFromSupabase(imagesToDelete);
+      }
+      // Then delete record
+      await deleteTreatment(id);
+  };
+  
   const handleUpdateProduct = async (treatment: Treatment) => await saveTreatment(treatment);
 
   const handleImageView = (images: string[], index: number) => {
@@ -596,6 +626,7 @@ const App: React.FC = () => {
       };
   };
 
+  // ... (renderCategoryList, renderHomeSection same as before)
   const renderCategoryList = () => {
       const displayCategories = (showAllCategories || showCategoryDrawer) ? categories : categories.slice(0, 8);
       return (
@@ -829,6 +860,7 @@ const App: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* ... (Render uploaded image form, empty state, and product grid) ... */}
                             {uploadedImage && isAdmin && currentUser?.permissions.products && (
                                 <div className="mb-8 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
                                     <div className="flex justify-between items-center mb-4">
@@ -1019,6 +1051,9 @@ const App: React.FC = () => {
       <AdminLogin isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} onLogin={handleAdminLogin} />
       <ChatWidget onSecretCode={(code) => { if (code === 'admin') { setIsAdminModalOpen(true); return true; } return false; }} telegramConfig={siteConfig.telegram} style={siteConfig.style} />
       <ImageViewer isOpen={isImageViewerOpen} onClose={() => setIsImageViewerOpen(false)} images={viewImages} initialIndex={viewIndex} />
+      
+      {/* Advanced Cookie Consent */}
+      <CookieConsent />
     </div>
   );
 };

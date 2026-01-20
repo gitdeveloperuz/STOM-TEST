@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, CalendarCheck, ChevronLeft, User, Phone, MapPin, MessageSquare, CreditCard, Store, CheckCircle, Loader2, Banknote, Wallet, ShoppingBag, Plus, Minus, Truck, Package, Clock } from 'lucide-react';
 import { CartItem, SiteConfig, Treatment, Order } from '../types';
@@ -153,9 +154,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, items, 
   const sendToTelegram = async (blob: Blob, fileName: string, orderId: string) => {
     const botToken = telegramConfig?.botToken || TELEGRAM_BOT_TOKEN;
     const rawAdminIds = telegramConfig?.adminId || TELEGRAM_ADMIN_ID;
+    
+    // Skip if config is missing or default
     if (!botToken || botToken.includes('YOUR_')) return false;
-    if (!rawAdminIds || rawAdminIds.includes('YOUR_')) return false;
-
+    
     const paymentText = "Onlayn o'tkazma";
     const deliveryText = formData.deliveryType === 'delivery' ? "🚙 Yetkazib berish" : "🏃‍♂️ O'zi olib ketish";
     
@@ -189,6 +191,7 @@ ${itemsList}
 
     const adminIds = rawAdminIds ? rawAdminIds.split(',').map(id => id.trim()).filter(id => id) : [];
     let successCount = 0;
+    
     for (const adminId of adminIds) {
         const formDataUpload = new FormData();
         formDataUpload.append('chat_id', adminId); 
@@ -249,24 +252,32 @@ ${itemsList}
           itemsCount: items.length
       });
 
-      // 3. Send Telegram Notification
+      // 3. Send Telegram Notification (to Admin)
       const { blob, fileName } = createExcelBlob(orderId);
-      const telegramSuccess = await sendToTelegram(blob, fileName, orderId);
-      if (!telegramSuccess) downloadLocally(blob, fileName);
+      // We try to send to admin channel/group if token exists
+      await sendToTelegram(blob, fileName, orderId);
 
       // 4. Send Data via WebApp (If available, closes app)
+      // This sends data back to the User who opened the WebApp
       // @ts-ignore
-      if (window.Telegram?.WebApp?.initData) {
-          const itemsSummary = items.map(i => `${i.name} (x${i.quantity})`).join(', ');
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
+          const itemsSummary = items.map(i => `${i.name} (x${i.quantity})`).join('\n');
           const payload = {
               type: 'ORDER',
               orderId,
               itemsSummary,
               totalAmount: getFormattedTotal(),
-              phone: formData.phone
+              phone: formData.phone,
+              firstName: formData.firstName
           };
-          // @ts-ignore
-          window.Telegram.WebApp.sendData(JSON.stringify(payload));
+          
+          tg.sendData(JSON.stringify(payload));
+          // Note: sendData closes the WebApp. If we want to show success screen first, we shouldn't call it immediately.
+          // However, usually sendData is the end of the flow.
+      } else {
+          // If not inside Telegram, download file
+          downloadLocally(blob, fileName);
       }
 
       setStep('success');
@@ -283,6 +294,13 @@ ${itemsList}
       onClear();
       setFormData(INITIAL_FORM_DATA);
       setLastOrderId('');
+      
+      // Close WebApp if success
+      // @ts-ignore
+      if (window.Telegram?.WebApp) {
+          // @ts-ignore
+          window.Telegram.WebApp.close();
+      }
     }
     onClose();
   };
@@ -452,21 +470,6 @@ ${itemsList}
                   <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
                     <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold pb-3 border-b border-slate-50 dark:border-slate-800">
                        <div className="bg-primary/10 dark:bg-primary/20 p-1.5 rounded-lg">
-                        <CreditCard className="h-4 w-4 text-primary dark:text-sky-400" />
-                      </div>
-                      <h3>To'lov usuli</h3>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <label className={`relative flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all border-primary bg-primary/5 dark:bg-primary/10`}>
-                        <input type="radio" name="paymentMethod" value="transfer" checked={true} readOnly className="h-5 w-5 text-primary border-slate-300 focus:ring-primary" disabled={isSubmitting} />
-                        <span className="ml-3 flex flex-1 items-center justify-between"><span className="text-base font-bold text-slate-800 dark:text-slate-200">Onlayn o'tkazma</span><div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg"><Wallet className="h-5 w-5 text-blue-600 dark:text-blue-400" /></div></span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-                    <div className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold pb-3 border-b border-slate-50 dark:border-slate-800">
-                       <div className="bg-primary/10 dark:bg-primary/20 p-1.5 rounded-lg">
                         <MessageSquare className="h-4 w-4 text-primary dark:text-sky-400" />
                       </div>
                       <h3>Izoh</h3>
@@ -520,35 +523,12 @@ ${itemsList}
                                 )}
                             </span>
                          </div>
-                         <div className="flex justify-between">
-                            <span className="text-slate-500 dark:text-slate-400">To'lov turi</span>
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400 text-right">Onlayn o'tkazma</span>
-                         </div>
-                     </div>
-
-                     <div className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-100 dark:border-slate-800 mb-4">
-                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-50 dark:border-slate-800">
-                            <ShoppingBag className="h-3.5 w-3.5 text-slate-400" />
-                            <span className="text-xs font-bold text-slate-400 uppercase">Xizmatlar</span>
-                        </div>
-                        <div className="space-y-2 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-                            {items.map((item) => (
-                            <div key={item.cartId} className="flex justify-between text-xs">
-                                <span className="text-slate-600 dark:text-slate-300 truncate pr-2"><span className="font-bold">x{item.quantity}</span> {item.name}</span>
-                                <span className="font-mono text-slate-900 dark:text-white">{formatPrice(item.price * item.quantity, item.currency)}</span>
-                            </div>
-                            ))}
-                        </div>
                      </div>
 
                      <div className="flex justify-between items-center pt-2 border-t border-dashed border-slate-200 dark:border-slate-700">
                         <span className="font-bold text-slate-500 dark:text-slate-400">Jami</span>
                         <span className="font-black text-lg text-primary">{getFormattedTotal()}</span>
                      </div>
-                     
-                     {/* Decorative circles mimicking receipt paper holes */}
-                     <div className="absolute -bottom-1.5 left-2 w-3 h-3 rounded-full bg-slate-50 dark:bg-slate-950"></div>
-                     <div className="absolute -bottom-1.5 right-2 w-3 h-3 rounded-full bg-slate-50 dark:bg-slate-950"></div>
                   </div>
                 </div>
               )}

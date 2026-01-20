@@ -9,7 +9,19 @@ export interface FirebaseConfig {
     measurementId: string;
 }
 
-// ... existing imports
+export interface SupabaseConfig {
+    url: string;
+    anonKey: string;
+    bucketName?: string;
+}
+
+export interface SystemCheckResult {
+    id: string;
+    name: string;
+    status: 'ok' | 'error' | 'warning';
+    message: string;
+    fix?: string;
+}
 
 export interface WelcomeButton {
     id: string;
@@ -21,59 +33,121 @@ export interface BotCommand {
     id: string;
     command: string;
     response: string;
+    description?: string;
     media?: { type: 'photo' | 'video'; url: string }[];
-    buttons?: { id: string; text: string; url: string }[];
+    buttons?: { id: string; text: string; url: string; variant?: string; bgColor?: string; textColor?: string }[];
     showInMenu?: boolean;
 }
 
-export interface TelegramMenuCommand {
+export interface Treatment {
     id: string;
-    command: string;
-    description: string;
-    enabled: boolean;
+    name: string;
+    price: number;
+    currency?: 'UZS' | 'USD';
+    category?: string;
+    description?: string;
+    imageUrl?: string;
+    images?: string[];
+    condition?: 'new' | 'used';
+    recommended?: boolean;
+    createdAt?: number;
 }
 
-export interface TelegramProfileConfig {
-    botName?: string;
-    shortDescription?: string; // "About" text
-    description?: string; // "What can this bot do?" text
-    menuButtonUrl?: string; // URL for Mini App
-    menuButtonText?: string;
-    useMenuButton?: boolean;
+export interface Category {
+    id: string;
+    name: string;
 }
 
-export interface BotConfig {
-    welcomeMessage: string;
-    welcomeButtons?: WelcomeButton[];
-    menuButtons: {
-        products: string;
-        cart: string;
-        announcements: string;
-        contactAdmin: string;
-        adminPanel: string;
+export interface CartItem extends Treatment {
+    cartId: string;
+    quantity: number;
+}
+
+export interface Order {
+    id: string;
+    date: number;
+    itemsSummary: string;
+    totalAmount: string;
+    source: 'website' | 'bot';
+    status: 'new' | 'completed' | 'cancelled' | 'fake';
+    userId?: string;
+    userPhone?: string;
+    location?: string;
+    items?: CartItem[];
+}
+
+export interface TelegramUser {
+    id: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    language?: string;
+    isLoyal?: boolean;
+    isPinned?: boolean;
+    lastActive?: number;
+    orders?: Order[];
+    adminNotes?: string;
+    source?: 'website' | 'bot';
+    likedProducts?: string[];
+}
+
+export interface ChatMessage {
+    id: string;
+    text: string;
+    sender: 'user' | 'admin';
+    timestamp: number;
+    read?: boolean;
+    mediaUrl?: string;
+    mediaType?: 'photo' | 'video' | 'audio' | 'document';
+    telegramMessageId?: number;
+}
+
+export interface ChatSession {
+    id: string;
+    userId: string;
+    userName?: string;
+    lastMessage: string;
+    lastMessageTime: number;
+    unreadCount: number;
+    blocked?: boolean;
+    spamBlockUntil?: number;
+}
+
+export interface AdminUser {
+    id: string;
+    email: string;
+    password?: string;
+    name?: string;
+    role?: 'super_admin' | 'admin';
+    permissions: {
+        products: boolean;
+        content: boolean;
+        chat: boolean;
+        settings: boolean;
+        admins: boolean;
     };
-    messages: {
-        cartEmpty: string;
-        cartHeader: string;
-        checkoutPrompt: string;
-        orderSuccess: string;
-        contactPrompt: string;
-        supportResponse: string;
-        locationPrompt: string;
-    };
-    inlineButtons: {
-        addToCart: string;
-        checkout: string;
-        clearCart: string;
-        sendLocation: string;
-        sendContact: string;
-        cancel: string;
-        skip: string;
-        back: string;
-    };
-    customCommands?: BotCommand[];
-    telegramMenuCommands?: TelegramMenuCommand[];
-    telegramProfile?: TelegramProfileConfig;
+    isTwoFactorEnabled?: boolean;
+    twoFactorSecret?: string;
+}
+
+export interface Advertisement {
+    id: string;
+    imageUrl: string;
+    title?: string;
+    description?: string;
+    buttonText?: string;
+    link?: string;
+    buttonBgColor?: string;
+    buttonTextColor?: string;
+    isActive?: boolean;
+    createdAt?: number;
+}
+
+export interface HeroMedia {
+    id: string;
+    type: 'image' | 'video';
+    url: string;
 }
 
 export interface GradientStop {
@@ -85,95 +159,8 @@ export interface GradientStop {
 
 export interface GradientConfig {
     type: 'linear' | 'radial' | 'conic';
-    angle: number;
+    angle?: number;
     stops: GradientStop[];
-}
-
-export interface StyleConfig {
-    buttonRadius?: number;
-    buttonPaddingX?: number;
-    buttonPaddingY?: number;
-    iconColor?: string;
-    primaryColor?: string;
-    logoHeight?: number;
-    footerLinkColor?: string;
-    cardHoverColor?: string;
-    chatBlurColor?: string;
-    productCardHoverColor?: string;
-    darkModeColor?: string;
-    cardBlur?: number;
-    productLayout?: 'masonry' | 'grid' | 'list';
-    chatButtonColor?: string;
-    heroHeight?: number;
-    navAlignment?: 'left' | 'center' | 'right'; 
-    
-    productCardBg?: string;
-    productCardBackgroundGradient?: GradientConfig;
-    productCardTextColor?: string;
-    productPriceColor?: string;
-    productCardBorderRadius?: number;
-    productCardTextAlign?: 'left' | 'center' | 'right';
-    
-    // Advanced Product Card Settings
-    productCardBlur?: number;
-    productCardShadowColor?: string;
-    productCardBorderWidth?: number;
-    productCardBorderColor?: string;
-    
-    // Product Gallery Settings
-    productGalleryAutoplay?: boolean;
-    productGalleryInterval?: number; // Seconds
-
-    // Product Button Settings
-    addToCartText?: string;
-    addedText?: string;
-    addToCartBtnGradient?: GradientConfig;
-    addedBtnGradient?: GradientConfig;
-    addToCartBtnTextColor?: string;
-    addedBtnTextColor?: string;
-
-    // Category Button Styles
-    categoryBtnColor?: string;
-    categoryBtnActiveColor?: string;
-    categoryBtnText?: string;
-    categoryBtnActiveText?: string;
-
-    productGrid?: {
-        mobileCols: number;
-        tabletCols: number;
-        desktopCols: number;
-        cardHeight: number; 
-        gap: number;
-    };
-
-    productSection?: {
-        backgroundGradient?: GradientConfig;
-        backgroundColor?: string;
-        paddingY?: number;
-        titleColor?: string;
-    };
-
-    cardConfig?: {
-        showQuantityControl?: boolean; 
-        descriptionLines?: number; 
-        titleSize?: number;
-        categoryPosition?: 'top-left' | 'above-title' | 'below-title' | 'hover-overlay' | 'breadcrumb' | 'hidden';
-        hideLikeButton?: boolean;
-        imageHeight?: number; // 0 or undefined for auto (Pinterest style), >0 for fixed height
-    };
-}
-
-export interface HeroMedia {
-    id: string;
-    type: 'image' | 'video';
-    url: string; 
-}
-
-export interface HeroButton {
-    id: string;
-    text: string;
-    url: string;
-    variant: 'primary' | 'secondary' | 'outline' | 'glass';
 }
 
 export interface CustomInfoItem {
@@ -186,124 +173,111 @@ export interface CustomInfoItem {
     color?: string;
 }
 
-export interface FaqItem {
+export interface FeatureCard {
     id: string;
-    question: string;
-    answer: string;
-    isVisible: boolean;
-}
-
-export type FaqStyleVariant = 'simple' | 'boxed' | 'grid';
-
-export interface FaqConfig {
-    variant?: FaqStyleVariant;
-    cardBlur?: number;
-    cardBorderColor?: string;
+    title: string;
+    description: string;
+    imageUrl?: string;
+    linkText?: string;
+    linkUrl?: string;
+    
+    width?: number;
+    height?: number;
+    
+    // Appearance
+    cardGradient?: GradientConfig;
+    contentBgStart?: string;
+    contentBgEnd?: string;
+    titleColor?: string;
+    titleGradientStart?: string;
+    titleGradientEnd?: string;
+    descColor?: string;
+    
     cardBorderGradient?: GradientConfig;
-    cardBorderGradientStart?: string;
-    cardBorderGradientEnd?: string;
     cardBorderWidth?: number;
-    cardBgColor?: string;
-    cardBgGradient?: GradientConfig;
-    cardBgGradientStart?: string;
-    cardBgGradientEnd?: string;
-    questionColor?: string;
-    answerColor?: string;
-    iconColor?: string;
-    iconBgColor?: string;
-    iconBgGradient?: GradientConfig; 
-    iconBorderGradient?: GradientConfig;
-    iconBorderGradientStart?: string;
-    iconBorderGradientEnd?: string;
-    iconBorderWidth?: number; 
+    
+    // Overlay/Caption
+    hideTitleOnCard?: boolean;
+    hideImageOnCard?: boolean;
+    overlayOpacity?: number;
+    caption?: string;
+    captionAlign?: 'left' | 'center' | 'right';
+    captionColor?: string;
+    captionSize?: number;
+    captionDescription?: string;
+    captionDescriptionColor?: string;
+    captionDescriptionSize?: number;
+    
+    additionalText?: string;
+    additionalTextColor?: string;
+    
+    // Modal
+    clickAction?: 'modal' | 'none';
+    hideModalTitle?: boolean;
+    hideModalImage?: boolean;
+    hideModalDescription?: boolean;
+    modalLayout?: 'overlay' | 'hero' | 'split-left' | 'split-right';
+    modalImageUrl?: string;
+    modalImageFit?: 'cover' | 'contain';
+    modalBackgroundGradient?: GradientConfig;
+    modalContentGradient?: GradientConfig;
+    
+    modalBlocks?: ModalBlock[];
+    cardButtons?: any[]; // legacy
 }
 
-export interface FeatureActionButton {
+export interface ModalButton {
     id: string;
     text: string;
     url: string;
+    icon?: string;
     bgColor?: string;
     textColor?: string;
-    icon?: string;
     iconColor?: string;
 }
 
-export type ImageDiffHandleStyle = 'circle-arrows' | 'circle' | 'square' | 'line';
-
-export interface ImageDiffItem {
+export interface TableRow {
     id: string;
-    beforeImage: string;
-    afterImage: string;
-    label?: string;
-    description?: string;
-    width?: string;
-    height?: string;
-    
-    sliderColor?: string;
-    sliderThickness?: number;
-    handleColor?: string;
-    
-    handleStyle?: ImageDiffHandleStyle;
-    hideHandle?: boolean;
-
-    // Content properties
-    textLayout?: 'top' | 'bottom' | 'overlay';
-    titleColor?: string;
-    descColor?: string;
-    
-    contentGradient?: GradientConfig;
-    contentBgGradientStart?: string;
-    contentBgGradientEnd?: string;
-    
-    titleGradient?: GradientConfig;
-    titleGradientStart?: string;
-    titleGradientEnd?: string;
-    
-    descGradient?: GradientConfig;
-    descGradientStart?: string;
-    descGradientEnd?: string;
-
-    additionalText?: string;
-    additionalTextColor?: string;
-    buttons?: FeatureActionButton[];
+    cells: string[];
 }
 
-export interface ImageDiffSectionConfig {
-    isVisible?: boolean;
+export interface ModalBlock {
+    id: string;
+    type: ModalBlockType;
     title?: string;
-    subtitle?: string;
-    paddingY?: number;
-    sectionGradient?: GradientConfig;
-    cardBorderGradient?: GradientConfig;
-    cardsGap?: number;
-    cardsAlignment?: 'left' | 'center' | 'right';
-    bgColor?: string;
-    sectionBgGradientStart?: string;
-    sectionBgGradientEnd?: string;
-    bgDirection?: string;
-    textColor?: string;
-    textColorGradientStart?: string;
-    textColorGradientEnd?: string;
-    borderWidth?: number;
-    borderRadius?: number;
-    beforeLabel?: string;
-    afterLabel?: string;
-    // Slider props overrides
-    interactionMode?: 'drag' | 'hover';
-    sliderColor?: string;
-    sliderThickness?: number;
-    handleColor?: string;
-    handleStyle?: ImageDiffHandleStyle;
-    labelBgColor?: string;
-    labelTextColor?: string;
-    borderColor?: string;
-    labelAlignment?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    content?: string; // for text (HTML)
+    url?: string; // for image
     
-    // NEW FIELDS
-    layoutMode?: 'flex' | 'grid';
-    gridColumns?: number;
-    hideHandle?: boolean;
+    // Styling
+    blockBgColor?: string;
+    blockPadding?: number;
+    textAlign?: 'left' | 'center' | 'right';
+    titleColor?: string;
+    titleSize?: string;
+    textColor?: string;
+    fontSize?: string;
+    
+    // Image specific
+    imageWidth?: string;
+    imageHeight?: string;
+    objectFit?: 'cover' | 'contain';
+    borderRadius?: number;
+    
+    // Table specific
+    headers?: string[];
+    tableRows?: TableRow[];
+    tableVariant?: 'simple' | 'striped' | 'bordered';
+    tableHeaderBg?: string;
+    tableHeaderGradient?: GradientConfig;
+    tableHeaderTextColor?: string;
+    tableRowBg?: string;
+    tableBorderColor?: string;
+    
+    // Buttons specific
+    buttons?: ModalButton[];
 }
+
+export type ModalBlockType = 'text' | 'image' | 'table' | 'buttons';
 
 export interface NavLink {
     id: string;
@@ -311,184 +285,6 @@ export interface NavLink {
     url: string;
     type: 'internal' | 'external';
     pageId?: string;
-}
-
-export interface Treatment {
-    id: string;
-    name: string;
-    price: number;
-    currency: 'UZS' | 'USD';
-    description?: string;
-    category?: string;
-    imageUrl?: string;
-    images?: string[];
-    condition?: 'new' | 'used';
-    recommended?: boolean;
-}
-
-export interface CartItem extends Treatment {
-    cartId: string;
-    quantity: number;
-}
-
-export interface Category {
-    id: string;
-    name: string;
-}
-
-export interface Advertisement {
-    id: string;
-    imageUrl: string;
-    title?: string;
-    description?: string;
-    buttonText?: string;
-    buttonBgColor?: string;
-    buttonTextColor?: string;
-    link?: string;
-    isActive: boolean;
-    createdAt: number;
-}
-
-export interface AdConfig {
-    layoutMode?: 'carousel' | 'grid';
-    autoplay?: boolean;
-    interval?: number;
-    showControls?: boolean;
-    gap?: number;
-    paddingX?: number;
-    paddingY?: number;
-    borderRadius?: number;
-    height?: number;
-    contentAlign?: 'left' | 'center' | 'right';
-    gridColumns?: {
-        mobile: number;
-        tablet: number;
-        desktop: number;
-    };
-    backgroundColor?: string;
-    backgroundGradient?: GradientConfig;
-    aspectRatio?: string;
-}
-
-export interface AdminUser {
-    id: string;
-    email: string;
-    password?: string;
-    name?: string;
-    role: 'super_admin' | 'admin';
-    isTwoFactorEnabled: boolean;
-    twoFactorSecret?: string;
-    permissions: {
-        products: boolean;
-        content: boolean;
-        chat: boolean;
-        settings: boolean;
-        admins: boolean;
-    };
-}
-
-export type SectionType = 'hero' | 'banner' | 'products' | 'features' | 'diff' | 'faq' | 'testimonials' | 'table';
-
-export interface PageSection {
-    id: string;
-    type: SectionType;
-    data: any; 
-}
-
-export interface Page {
-    id: string;
-    title: string;
-    slug: string;
-    sections: PageSection[];
-}
-
-export interface Order {
-    id: string;
-    date: number;
-    itemsSummary: string;
-    totalAmount: string;
-    source: 'website' | 'bot';
-    status: 'new' | 'completed' | 'cancelled' | 'fake';
-    userId: string;
-    userPhone: string;
-    location?: string;
-    items?: CartItem[];
-}
-
-export interface RateLimitState {
-    dailyCount: number;
-    lastResetTime: number;
-    lastMessageTime: number;
-    lastMessageText: string;
-    spamScore: number;
-}
-
-export interface TelegramUser {
-    id: string;
-    username?: string;
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
-    isBlocked?: boolean;
-    isLoyal?: boolean;
-    isPinned?: boolean;
-    hasOrdered?: boolean;
-    orders?: Order[];
-    announcementsSeen?: string[];
-    lastActive?: number;
-    createdAt?: number;
-    cartAddCount?: number;
-    buttonClickCount?: number;
-    source?: 'website' | 'bot';
-    adminNotes?: string;
-    spamBlockUntil?: number;
-    rateLimit?: RateLimitState;
-    likedProducts?: string[];
-}
-
-export interface ChatMessage {
-    id: string;
-    text: string;
-    sender: 'user' | 'admin';
-    timestamp: number;
-    read: boolean;
-    sessionId: string;
-    telegramMessageId?: number;
-    mediaUrl?: string;
-    mediaType?: 'photo' | 'video' | 'audio' | 'document';
-}
-
-export interface ChatSession {
-    id: string;
-    lastMessage: string;
-    lastMessageTime: number;
-    unreadCount: number;
-    blocked?: boolean;
-    spamBlockUntil?: number;
-    rateLimit?: RateLimitState;
-    userName?: string;
-}
-
-export interface AnnouncementMedia {
-    type: 'photo' | 'video';
-    url: string;
-}
-
-export interface Announcement {
-    id: string;
-    caption: string;
-    mediaItems: AnnouncementMedia[];
-    inlineButtons?: { text: string, url: string }[];
-    status: 'pending' | 'sending' | 'sent';
-    createdAt: number;
-    scheduledTime: number;
-    sentTo: string[];
-    frequency: 'once' | 'daily' | 'weekly' | 'monthly';
-    targetDay?: number; 
-    targetWeek?: number;
-    maxRepeats?: number;
-    currentRepeatCount: number;
-    totalUsersCount?: number;
 }
 
 export interface FooterLink {
@@ -503,15 +299,23 @@ export interface FooterSocial {
     url: string;
 }
 
+export interface FaqItem {
+    id: string;
+    question: string;
+    answer: string;
+    isVisible: boolean;
+}
+
 export interface TestimonialItem {
     id: string;
     name: string;
-    text: string;
     role?: string;
+    text: string;
     avatarUrl?: string;
-    rating: number; // 1-5
+    rating: number;
+    hideRating?: boolean;
     
-    // Style overrides
+    // Styling overrides
     bgGradient?: GradientConfig;
     bgGradientStart?: string;
     bgGradientEnd?: string;
@@ -520,6 +324,11 @@ export interface TestimonialItem {
     roleColor?: string;
     iconColor?: string;
     blurColor?: string;
+    
+    borderGradient?: GradientConfig;
+    borderGradientStart?: string;
+    borderGradientEnd?: string;
+    borderWidth?: number;
     
     avatarSize?: number;
     reverseLayout?: boolean;
@@ -531,13 +340,106 @@ export interface TestimonialItem {
     nameSize?: number;
     roleSize?: number;
     starSize?: number;
+}
+
+export interface ImageDiffItem {
+    id: string;
+    beforeImage: string;
+    afterImage: string;
+    label?: string;
+    description?: string;
     
-    hideRating?: boolean;
+    // Slider styling
+    sliderColor?: string;
+    sliderThickness?: number;
+    handleColor?: string;
+    handleStyle?: 'circle-arrows' | 'circle' | 'square' | 'line';
+    hideHandle?: boolean;
     
-    borderWidth?: number;
-    borderGradient?: GradientConfig;
-    borderGradientStart?: string;
-    borderGradientEnd?: string;
+    // Text styling
+    textLayout?: 'top' | 'bottom' | 'overlay';
+    titleColor?: string;
+    titleGradient?: GradientConfig;
+    descColor?: string;
+    descGradient?: GradientConfig;
+    
+    // Content box styling
+    contentGradient?: GradientConfig;
+    contentBgGradientStart?: string;
+    contentBgGradientEnd?: string;
+    
+    additionalText?: string;
+    additionalTextColor?: string;
+    
+    buttons?: FeatureActionButton[];
+    height?: string; // css height e.g. "400px" or "auto"
+}
+
+export interface FeatureActionButton {
+    id: string;
+    text: string;
+    url: string;
+    icon?: string;
+    bgColor?: string;
+    textColor?: string;
+    iconColor?: string;
+}
+
+export interface Doctor {
+    id: string;
+    name: string;
+    specialty: string;
+    imageUrl?: string;
+    phone: string;
+    services?: { name: string; price: string }[];
+}
+
+export interface AdConfig {
+    autoplay?: boolean;
+    interval?: number;
+    showControls?: boolean;
+    layoutMode?: 'carousel' | 'grid';
+    gap?: number;
+    paddingX?: number;
+    paddingY?: number;
+    borderRadius?: number;
+    height?: number;
+    contentAlign?: 'left' | 'center' | 'right';
+    backgroundGradient?: GradientConfig;
+    backgroundColor?: string;
+    aspectRatio?: string;
+    gridColumns?: {
+        mobile: number;
+        tablet: number;
+        desktop: number;
+    };
+}
+
+export type FaqStyleVariant = 'simple' | 'boxed' | 'grid';
+
+export interface FaqConfig {
+    variant?: FaqStyleVariant;
+    cardBgGradient?: GradientConfig;
+    cardBgGradientStart?: string;
+    cardBgGradientEnd?: string;
+    cardBgColor?: string;
+    cardBorderGradient?: GradientConfig;
+    cardBorderGradientStart?: string;
+    cardBorderGradientEnd?: string;
+    cardBorderColor?: string;
+    cardBorderWidth?: number;
+    cardBlur?: number;
+    
+    questionColor?: string;
+    answerColor?: string;
+    
+    iconColor?: string;
+    iconBgGradient?: GradientConfig;
+    iconBgColor?: string;
+    iconBorderGradient?: GradientConfig;
+    iconBorderGradientStart?: string;
+    iconBorderGradientEnd?: string;
+    iconBorderWidth?: number;
 }
 
 export interface TestimonialsSectionConfig {
@@ -546,122 +448,6 @@ export interface TestimonialsSectionConfig {
     paddingY?: number;
     titleColor?: string;
     subtitleColor?: string;
-}
-
-export interface Doctor {
-    id: string;
-    name: string;
-    specialty: string;
-    phone: string;
-    imageUrl?: string;
-    services?: { name: string; price: string }[];
-}
-
-export type ModalBlockType = 'text' | 'image' | 'table' | 'buttons';
-
-export interface ModalButton {
-    id: string;
-    text: string;
-    url: string;
-    variant?: 'primary' | 'secondary' | 'outline';
-    bgColor?: string;
-    textColor?: string;
-    icon?: string;
-}
-
-export interface TableRow {
-    id: string;
-    cells: string[];
-}
-
-export interface ModalBlock {
-    id: string;
-    type: ModalBlockType;
-    title?: string;
-    titleColor?: string;
-    titleSize?: string;
-    content?: string; // HTML for text
-    textColor?: string;
-    fontSize?: number;
-    textAlign?: 'left' | 'center' | 'right' | 'justify';
-    
-    url?: string; // For image
-    imageWidth?: string;
-    imageHeight?: string;
-    objectFit?: 'cover' | 'contain';
-    borderRadius?: number;
-    
-    headers?: string[]; // For table
-    tableRows?: TableRow[];
-    tableVariant?: 'simple' | 'striped' | 'bordered';
-    tableHeaderBg?: string;
-    tableHeaderTextColor?: string;
-    tableHeaderGradient?: GradientConfig;
-    tableRowBg?: string;
-    tableBorderColor?: string;
-    
-    buttons?: ModalButton[]; // For buttons block
-    
-    blockBgColor?: string;
-    blockPadding?: number;
-}
-
-export interface FeatureCard {
-    id: string;
-    title: string;
-    description: string;
-    imageUrl?: string; 
-    width?: number;
-    height?: number;
-    
-    // Card Appearance
-    cardGradient?: GradientConfig;
-    contentBgStart?: string;
-    contentBgEnd?: string;
-    titleColor?: string;
-    descColor?: string;
-    titleGradientStart?: string;
-    titleGradientEnd?: string;
-    
-    cardBorderGradient?: GradientConfig;
-    cardBorderWidth?: number;
-    
-    hideImageOnCard?: boolean;
-    hideTitleOnCard?: boolean; // If true, title is overlay
-    overlayOpacity?: number;
-    
-    // Overlay specific
-    caption?: string;
-    captionColor?: string;
-    captionSize?: number;
-    captionAlign?: 'left' | 'center' | 'right';
-    captionDescription?: string;
-    captionDescriptionColor?: string;
-    captionDescriptionSize?: number;
-    
-    additionalText?: string;
-    additionalTextColor?: string;
-    
-    // Interaction
-    clickAction?: 'modal' | 'link' | 'none';
-    linkUrl?: string; // if link
-    linkText?: string;
-    
-    // Modal Config
-    modalLayout?: 'overlay' | 'hero' | 'split-left' | 'split-right';
-    modalImageUrl?: string;
-    modalImageFit?: 'cover' | 'contain';
-    hideModalImage?: boolean;
-    hideModalTitle?: boolean;
-    hideModalDescription?: boolean;
-    
-    modalBackgroundGradient?: GradientConfig;
-    modalContentGradient?: GradientConfig;
-    
-    modalBlocks?: ModalBlock[];
-    
-    // Legacy support 
-    cardButtons?: ModalButton[]; 
 }
 
 export interface FeatureSectionConfig {
@@ -674,27 +460,51 @@ export interface FeatureSectionConfig {
     bgGradientEnd?: string;
 }
 
+export interface ImageDiffSectionConfig {
+    isVisible?: boolean;
+    title?: string;
+    subtitle?: string;
+    bgColor?: string;
+    textColor?: string;
+    
+    paddingY?: number;
+    sectionGradient?: GradientConfig;
+    sectionBgGradientStart?: string;
+    sectionBgGradientEnd?: string;
+    bgDirection?: string;
+    
+    cardBorderGradient?: GradientConfig;
+    borderWidth?: number;
+    borderRadius?: number;
+    
+    cardsGap?: number;
+    cardsAlignment?: 'left' | 'center' | 'right';
+    
+    beforeLabel?: string;
+    afterLabel?: string;
+    
+    // Global overrides
+    layoutMode?: 'flex' | 'grid';
+    gridColumns?: number;
+    hideHandle?: boolean;
+    handleStyle?: 'circle-arrows' | 'circle' | 'square' | 'line';
+    labelAlignment?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    
+    // Styling Defaults
+    sliderColor?: string;
+    sliderThickness?: number;
+    handleColor?: string;
+    labelBgColor?: string;
+    labelTextColor?: string;
+    borderColor?: string;
+}
+
 export interface TableSectionConfig {
     title?: string;
     description?: string;
-    headers: string[];
-    rows: TableRow[];
-    
+    headers?: string[];
+    rows?: TableRow[];
     variant?: 'simple' | 'striped' | 'bordered';
-    
-    headerBgGradientStart?: string;
-    headerBgGradientEnd?: string;
-    headerTextColor?: string;
-    rowBgColor?: string;
-    rowTextColor?: string;
-    borderColor?: string;
-    stripeColor?: string;
-    
-    borderStyle?: 'solid' | 'dashed' | 'dotted';
-    borderWidth?: number;
-    borderRadius?: number;
-    borderGradientStart?: string;
-    borderGradientEnd?: string;
     
     fontFamily?: 'sans' | 'serif' | 'mono';
     titleSize?: number;
@@ -702,12 +512,139 @@ export interface TableSectionConfig {
     titleAlign?: 'left' | 'center' | 'right';
     descColor?: string;
     
+    headerBgGradientStart?: string;
+    headerBgGradientEnd?: string;
+    headerTextColor?: string;
     headerFontSize?: number;
+    
+    rowBgColor?: string;
+    rowTextColor?: string;
     rowFontSize?: number;
+    stripeColor?: string;
+    
+    borderStyle?: 'solid' | 'dashed' | 'dotted';
+    borderWidth?: number;
+    borderRadius?: number;
+    borderColor?: string;
+    borderGradientStart?: string;
+    borderGradientEnd?: string;
 }
 
-export interface ProductCondition {
-    // legacy type
+export interface PageSection {
+    id: string;
+    type: SectionType;
+    data: {
+        heroConfig?: SiteConfig;
+        featureCards?: FeatureCard[];
+        featureSectionConfig?: FeatureSectionConfig;
+        ads?: Advertisement[];
+        adConfig?: AdConfig;
+        diffItems?: ImageDiffItem[];
+        diffConfig?: ImageDiffSectionConfig;
+        faqItems?: FaqItem[];
+        faqTitle?: string;
+        faqSubtitle?: string;
+        faqConfig?: FaqConfig;
+        testimonials?: TestimonialItem[];
+        testimonialsTitle?: string;
+        testimonialsSubtitle?: string;
+        testimonialsConfig?: TestimonialsSectionConfig;
+        tableConfig?: TableSectionConfig;
+    };
+}
+
+export interface Page {
+    id: string;
+    title: string;
+    slug: string;
+    sections: PageSection[];
+}
+
+export interface TelegramMenuCommand {
+    id: string;
+    command: string;
+    description: string;
+    enabled: boolean;
+}
+
+export interface TelegramProfileConfig {
+    botName?: string;
+    shortDescription?: string;
+    description?: string;
+}
+
+export interface StyleConfig {
+    logoHeight?: number;
+    navAlignment?: 'left' | 'center' | 'right';
+    primaryColor?: string;
+    buttonRadius?: number;
+    buttonPaddingX?: number;
+    buttonPaddingY?: number;
+    iconColor?: string;
+    footerLinkColor?: string;
+    cardHoverColor?: string;
+    chatButtonColor?: string;
+    chatBlurColor?: string;
+    
+    // Product Card Specific
+    productLayout?: 'masonry' | 'grid' | 'list';
+    productCardBg?: string;
+    productCardBackgroundGradient?: GradientConfig;
+    productCardTextColor?: string;
+    productCardBorderRadius?: number;
+    productCardBorderWidth?: number;
+    productCardBorderColor?: string;
+    productCardShadowColor?: string;
+    productCardBlur?: number;
+    productCardHoverColor?: string; // used for shadow/border on hover
+    productCardTextAlign?: 'left' | 'center' | 'right';
+    productPriceColor?: string;
+    
+    productGalleryAutoplay?: boolean;
+    productGalleryInterval?: number;
+    
+    cardConfig?: {
+        showQuantityControl?: boolean;
+        hideLikeButton?: boolean;
+        descriptionLines?: number;
+        titleSize?: number;
+        categoryPosition?: 'top-left' | 'hover-overlay' | 'breadcrumb' | 'above-title' | 'below-title' | 'hidden';
+        imageHeight?: number; // if 0, auto/aspect
+    };
+    
+    // Product Section
+    productSection?: {
+        backgroundColor?: string;
+        backgroundGradient?: GradientConfig;
+        titleColor?: string;
+    };
+    
+    // Button specific
+    addToCartText?: string;
+    addedText?: string;
+    addToCartBtnGradient?: GradientConfig;
+    addedBtnGradient?: GradientConfig;
+    addToCartBtnTextColor?: string;
+    addedBtnTextColor?: string;
+    
+    categoryBtnColor?: string;
+    categoryBtnActiveColor?: string;
+    categoryBtnText?: string;
+    categoryBtnActiveText?: string;
+    
+    darkModeColor?: string;
+    heroHeight?: number;
+}
+
+export interface BotConfig {
+    welcomeMessage?: string;
+    welcomeButtons?: WelcomeButton[];
+    menuButtons?: Record<string, string>;
+    messages?: Record<string, string>;
+    inlineButtons?: Record<string, string>;
+    customCommands?: BotCommand[];
+    telegramMenuCommands?: TelegramMenuCommand[];
+    telegramProfile?: TelegramProfileConfig;
 }
 
 export interface SiteConfig {
@@ -718,30 +655,28 @@ export interface SiteConfig {
     gradientEnd: string;
     gradientStartOpacity?: number;
     gradientEndOpacity?: number;
-    subheadlineFont?: string;
-    subheadlineColor?: string;
-    headlineColor?: string;
-    logoText?: string;
-    logoUrl?: string;
-    darkModeColor?: string;
-    showHomeLink?: boolean; // New Flag
-    
-    textGradientStart?: string;
-    textGradientEnd?: string;
     heroBackgroundGradient?: GradientConfig;
     heroTextGradient?: GradientConfig;
+    subheadlineFont?: string;
+    headlineColor?: string;
+    subheadlineColor?: string;
+    textGradientStart?: string;
+    textGradientEnd?: string;
     
-    customItems?: any[]; 
+    logoUrl?: string;
+    logoText?: string;
+    
+    customItems?: CustomInfoItem[];
     customCardsGradient?: GradientConfig;
     customCardsPosition?: 'left' | 'center' | 'right';
     
     heroMedia?: HeroMedia[];
     
-    // Sections Data
-    homeSectionOrder?: SectionType[];
+    darkModeColor?: string;
+    showHomeLink?: boolean;
+    itemsPerPage?: number;
     
-    bannerAds?: Advertisement[];
-    adConfig?: AdConfig;
+    homeSectionOrder?: SectionType[];
     
     featureCards?: FeatureCard[];
     featureSectionConfig?: FeatureSectionConfig;
@@ -761,30 +696,57 @@ export interface SiteConfig {
     
     tableConfig?: TableSectionConfig;
     
-    navLinks?: NavLink[];
-    pages?: Page[];
-    
-    itemsPerPage?: number;
-    
-    telegram?: {
-        botToken: string;
-        adminId: string;
-        broadcastBotToken?: string;
-    };
+    bannerAds?: Advertisement[];
+    adConfig?: AdConfig;
     
     footer?: {
-        description: string;
-        copyright: string;
-        poweredBy: string;
+        description?: string;
+        copyright?: string;
+        poweredBy?: string;
         links: FooterLink[];
         socials: FooterSocial[];
     };
     
+    telegram?: {
+        botToken: string;
+        adminId: string;
+    };
+    
     style?: StyleConfig;
     
+    pages?: Page[];
+    navLinks?: NavLink[];
+    
+    conditionConfig?: any; // kept for legacy
     botConfig?: BotConfig;
     
-    conditionConfig?: any;
     twoFactorIssuer?: string;
     firebaseConfig?: FirebaseConfig;
+    supabaseConfig?: SupabaseConfig;
+}
+
+export type SectionType = 'hero' | 'banner' | 'products' | 'features' | 'diff' | 'faq' | 'testimonials' | 'table';
+export type ProductCondition = 'new' | 'used';
+export type BotState = 'start' | 'waiting_for_name' | 'waiting_for_phone' | 'waiting_for_location' | 'admin_chat';
+export type BotStep = 'idle' | 'name' | 'phone' | 'location' | 'comment';
+
+export interface Announcement {
+    id: string;
+    title: string;
+    content: string;
+    date: number;
+    views: number;
+    imageUrl?: string;
+}
+
+export interface AnnouncementMedia {
+    type: 'photo' | 'video';
+    fileId: string;
+    url?: string;
+}
+
+export interface RateLimitState {
+    count: number;
+    firstRequest: number;
+    blockedUntil: number;
 }

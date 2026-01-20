@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Check, Edit2, Save, X, Trash2, Minus, ZoomIn, ChevronLeft, ChevronRight, ShoppingCart, Tag, ChevronDown, ChevronUp, Heart, Loader2 } from 'lucide-react';
 import { Treatment, Category, SiteConfig, GradientConfig } from '../types';
 import { formatPrice } from '../constants';
-import { uploadToSupabase, base64ToBlob } from '../services/supabase';
+import { uploadToSupabase, base64ToBlob, deleteFromSupabase } from '../services/supabase';
+import { logAnalyticsEvent } from '../services/db';
 
 interface TreatmentCardProps {
   treatment: Treatment;
@@ -152,9 +153,13 @@ export const TreatmentCard: React.FC<TreatmentCardProps> = ({ treatment, onAdd, 
   }, [treatment]);
 
   useEffect(() => {
-      if (images.length > prevImagesLength.current) {
+      // If images array shrinks (e.g. deletion), adjust index
+      if (currentImageIndex >= images.length && images.length > 0) {
           setCurrentImageIndex(images.length - 1);
+      } else if (images.length === 0) {
+          setCurrentImageIndex(0);
       }
+      
       prevImagesLength.current = images.length;
   }, [images.length]);
 
@@ -191,6 +196,16 @@ export const TreatmentCard: React.FC<TreatmentCardProps> = ({ treatment, onAdd, 
     e.stopPropagation();
     const finalQty = typeof quantity === 'string' ? (parseInt(quantity) || 1) : quantity;
     onAdd({ ...treatment, name, price, currency }, finalQty);
+    
+    // TRACK: Add to cart
+    logAnalyticsEvent('add_to_cart', { 
+        productName: name, 
+        price, 
+        currency, 
+        quantity: finalQty, 
+        category: categoryId 
+    });
+
     setAdded(true);
     setIsSelectingQuantity(false);
     setTimeout(() => setAdded(false), showQuantityControl ? 1000 : 2000);
@@ -220,29 +235,47 @@ export const TreatmentCard: React.FC<TreatmentCardProps> = ({ treatment, onAdd, 
     setIsSaving(true);
 
     try {
+        const folderName = name.trim().replace(/\s+/g, '_') || 'products';
+
+        // 1. Identify and delete removed images
+        const originalImages = treatment.images || (treatment.imageUrl ? [treatment.imageUrl] : []);
+        const removedImages = originalImages.filter(url => !images.includes(url));
+        if (removedImages.length > 0) {
+            try {
+                await deleteFromSupabase(removedImages);
+            } catch(e) {
+                console.warn("Could not delete some images from Supabase, ignoring...", e);
+            }
+        }
+
+        // 2. Upload new images and process current list
         const processedImages = await Promise.all(images.map(async (img, idx) => {
             if (img.startsWith('data:')) {
+                // If it's a base64 string, upload it to Supabase first
                 const blob = base64ToBlob(img);
-                const url = await uploadToSupabase(blob);
+                const url = await uploadToSupabase(blob, folderName);
                 if (!url) {
-                    console.warn("Using fallback base64 image");
+                    console.warn("Using fallback base64 image because Supabase upload failed");
+                    if (img.length > 800000) {
+                        throw new Error("Rasm hajmi juda katta va Supabasega yuklanmadi.");
+                    }
                     return img; // Fallback
                 }
-                return url;
+                return url; // Use the returned URL
             }
-            return img;
+            return img; // Already a URL
         }));
 
         const cleanImages = processedImages; 
 
         if (cleanImages.length === 0) {
-             throw new Error("Hech qanday rasm qolmadi.");
+             // throw new Error("Hech qanday rasm qolmadi."); // Allow saving without images if needed, or enforce
         }
 
-        const mainImage = cleanImages[0];
+        const mainImage = cleanImages.length > 0 ? cleanImages[0] : '';
 
         if (onUpdate) {
-            onUpdate({
+            await onUpdate({
                 ...treatment, 
                 name, 
                 price: Number(price), 
@@ -259,6 +292,8 @@ export const TreatmentCard: React.FC<TreatmentCardProps> = ({ treatment, onAdd, 
         let msg = "Xatolik yuz berdi.";
         if (err.message && err.message.includes('exceeds the maximum size')) {
             msg = "Rasm hajmi juda katta.";
+        } else if (err.message) {
+            msg = err.message;
         }
         alert(msg);
     } finally {
@@ -280,7 +315,11 @@ export const TreatmentCard: React.FC<TreatmentCardProps> = ({ treatment, onAdd, 
 
   const handleImageClickInternal = (e: React.MouseEvent) => {
     e.stopPropagation(); e.preventDefault();
-    if (images.length > 0 && onImageClick && !isEditing) onImageClick(images, currentImageIndex);
+    if (images.length > 0 && onImageClick && !isEditing) {
+        // TRACK: Product View
+        logAnalyticsEvent('product_view', { productName: name, category: categoryId });
+        onImageClick(images, currentImageIndex);
+    }
   };
 
   const handleImageAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,7 +338,6 @@ export const TreatmentCard: React.FC<TreatmentCardProps> = ({ treatment, onAdd, 
   const removeImage = (indexToRemove: number) => {
       setImages(prev => {
           const newImages = prev.filter((_, idx) => idx !== indexToRemove);
-          if (currentImageIndex >= newImages.length) setCurrentImageIndex(Math.max(0, newImages.length - 1));
           return newImages;
       });
   };
@@ -413,7 +451,7 @@ export const TreatmentCard: React.FC<TreatmentCardProps> = ({ treatment, onAdd, 
         {!isEditing && !hideLike && (
             <button 
                 onClick={handleLike} 
-                className={`absolute top-2 right-2 z-30 p-1.5 sm:p-2 rounded-full transition-all active:scale-95 shadow-sm backdrop-blur-sm ${isLiked ? 'bg-red-500 text-white' : 'bg-white/80 dark:bg-slate-900/80 text-slate-400 hover:text-red-500'}`}
+                className={`absolute top-2 right-2 z-30 p-1.5 sm:p-2 rounded-full transition-all active:scale-95 shadow-sm backdrop-blur-sm ${isLiked ? 'bg-red-50 text-white' : 'bg-white/80 dark:bg-slate-900/80 text-slate-400 hover:text-red-500'}`}
             >
                 <Heart className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${isLiked ? 'fill-current' : ''}`} />
             </button>
@@ -580,7 +618,7 @@ export const TreatmentCard: React.FC<TreatmentCardProps> = ({ treatment, onAdd, 
 
       {isAdmin && (
         <div className="absolute top-2 right-2 z-[100] flex gap-1">
-            <button onClick={handleDelete} type="button" className="p-1.5 rounded-full backdrop-blur-md bg-white/95 dark:bg-slate-900/95 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg active:scale-95 border border-red-100 dark:border-red-900/30 cursor-pointer" title="O'chirish"><Trash2 className="h-3.5 w-3.5" /></button>
+            <button onClick={handleDelete} type="button" className="p-1.5 rounded-full backdrop-blur-md bg-white/95 dark:bg-slate-900/95 text-red-500 hover:bg-red-500 hover:text-white transition-all shadow-lg active:scale-95 border border-red-100 dark:border-red-900/30 cursor-pointer" title="Mahsulotni O'chirish"><Trash2 className="h-3.5 w-3.5" /></button>
             <button onClick={isEditing ? handleSave : toggleEdit} disabled={isSaving} type="button" className={`p-1.5 rounded-full backdrop-blur-md transition-all shadow-lg active:scale-95 border cursor-pointer ${isEditing ? 'bg-primary text-white border-primary' : 'bg-white/95 dark:bg-slate-900/95 text-slate-500 dark:text-slate-400 hover:text-primary hover:bg-white dark:hover:bg-slate-800 border-slate-100 dark:border-slate-800'}`} title="Tahrirlash">
                 {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (isEditing ? <Save className="h-3.5 w-3.5" /> : <Edit2 className="h-3.5 w-3.5" />)}
             </button>

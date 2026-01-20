@@ -2,8 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Send, ShieldCheck, CheckCheck, AlertOctagon, Clock } from 'lucide-react';
 import { ChatMessage, SiteConfig, StyleConfig } from '../types';
-import { sendMessage, subscribeToChatMessages, checkTelegramReplies, notifyAdminsOfWebMessage, subscribeToSession } from '../services/db';
-import { TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_ID } from '../constants';
+import { sendMessage, subscribeToChatMessages, notifyAdminsOfWebMessage, subscribeToSession } from '../services/db';
 
 interface ChatWidgetProps {
   onSecretCode?: (code: string) => boolean;
@@ -74,43 +73,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ onSecretCode, telegramCo
       }
   }, [spamUntil]);
 
-  // Poll Telegram for replies (Optimized with Error Backoff)
-  useEffect(() => {
-      const botToken = telegramConfig?.botToken || TELEGRAM_BOT_TOKEN;
-      const rawAdminIds = telegramConfig?.adminId || TELEGRAM_ADMIN_ID;
-      
-      if (!botToken || botToken.includes('YOUR_')) return;
-
-      const adminIds = rawAdminIds ? rawAdminIds.split(',').map(id => id.trim()) : [];
-
-      let isRunning = true;
-      let errorCount = 0;
-
-      const poll = async () => {
-          if (!isRunning) return;
-          
-          const success = await checkTelegramReplies(botToken, adminIds);
-          
-          if (isRunning) {
-              if (success) {
-                  errorCount = 0;
-                  setTimeout(poll, 1000);
-              } else {
-                  errorCount++;
-                  // If it fails (CORS), it will likely fail forever in this env. 
-                  // Slow down significantly to avoid console spam.
-                  setTimeout(poll, 30000);
-              }
-          }
-      };
-      
-      poll();
-
-      return () => {
-          isRunning = false;
-      };
-  }, [telegramConfig]);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -139,15 +101,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({ onSecretCode, telegramCo
     } catch (error: any) {
         if (error.message === 'BLOCKED') {
             setIsBlocked(true);
+            alert("Siz bloklangansiz.");
         } else if (error.message.startsWith('SPAM_LIMIT')) {
             const until = parseInt(error.message.split(':')[1]);
             setSpamUntil(until);
-        } else if (error.message === 'DAILY_LIMIT') {
-            alert("Kunlik xabar limiti tugadi (20 ta). Ertaga urinib ko'ring.");
-            setInputText(tempText); // Restore text
+            alert("Spam aniqlandi. Iltimos biroz kuting.");
         } else if (error.message === 'TOO_FAST') {
-            // Silently ignore or restore text
-            // setInputText(tempText); // Optional: let user retry
+            // Restore text silently to prevent spamming
+            setInputText(tempText); 
+        } else {
+            console.error(error);
+            setInputText(tempText);
         }
     }
   };
